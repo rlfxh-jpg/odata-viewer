@@ -1,0 +1,35 @@
+核心功能模块设计
+A. 首页：连接与导入
+●输入框: 输入 OData 服务地址（如 http://api/odata/$metadata）。
+●上传: 支持直接拖拽本地 .xml 文件解析（针对内网无法直接访问的情况）。
+●历史记录: 记住最近访问过的 API。
+B. 左侧：实体导航树 (Schema Explorer)
+●展示所有的 EntitySet (表)、ComplexType (复杂类型)、Enum (枚举)。
+●点击某一个实体，右侧显示详情。
+C. 右侧：实体详情视图 (Viewer)
+这是核心区域，建议分三个 Tab：
+1.字段列表 (Table View):
+a.列出所有 Property。
+b.列：Name (字段名), Type (类型), Nullable (是否必填), Description (注释)。
+c.亮点功能:
+i.关联关系 (NavigationProperty) 单独列出，点击可跳转到关联实体。
+ii.枚举值直接展开显示 Key-Value。
+2.TypeScript 定义 (Code View):
+a.根据当前实体结构，实时生成 TS Interface。
+b.支持配置：是否把 Edm.Int32 转为 number，Edm.DateTimeOffset 转为 string 等。
+c.Copy 按钮: 一键复制。
+3.查询测试器 (Try it):
+a.一个迷你的 Postman。
+b.可视化勾选 $select 字段。
+c.可视化选择 $expand 关联表。
+d.输入框编写 $filter (提供智能提示)。
+e.点击“运行”，直接看数据结果。
+f.生成请求URL
+D. 可视化关系图 (ER Diagram)
+●选中几个实体，自动画出它们之间的连线图。
+●直观看到 1:N 还是 N:N 关系。
+第一版建议只做这三个功能：
+1.输入 URL -> 也就是所谓的 "Connect"。
+2.左侧列表 -> 列出所有表名 (EntitySets)。
+3.中间表格 -> 点击表名，显示它的字段名、类型、是否必填。
+我现在要用electron 加vue setup+ts+element ui实现这个项目 先帮我创建一个项目 要有详细的步骤
