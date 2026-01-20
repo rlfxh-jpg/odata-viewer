@@ -12,18 +12,18 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       devTools: true,
-      frame: false,
       preload: path.join(__dirname, 'dist-electron/preload.js'),
-      titleBarStyle: 'hidden',
     },
 
   })
   win.setMenu(null)
-  win.openDevTools()
+  win.webContents.openDevTools()
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
