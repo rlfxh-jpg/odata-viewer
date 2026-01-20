@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import axios from 'axios'
+//@ts-ignore
+import * as odatajs from '../lib/odatajs/lib/odata.js';
+import testXml from '../assets/metadata.xml?raw'
 
 const saveOrginMetadata = async (orginMetadata: any) => {
-  await window.electronAPI.saveConfig('orginMetadata', orginMetadata)
-  console.log('saveOrginMetadata', orginMetadata)
+  await window.electronAPI.saveConfig('orginMetadata11', orginMetadata)
+  //console.log('saveOrginMetadata', orginMetadata)
 }
 
 export const useODataStore = defineStore('odata', () => {
@@ -18,6 +21,8 @@ export const useODataStore = defineStore('odata', () => {
     loading.value = true
     try {
       const res = await axios.get(odataUrl.value)
+      const metadata =odatajs.parseMetadata(testXml)
+      console.log(metadata)
       await saveOrginMetadata(res.data)
       return true
     } catch (e) {

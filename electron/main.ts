@@ -12,8 +12,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
-    frame: false,
-    titleBarStyle: 'hidden',
+    frame: true,
+    // titleBarStyle: 'hidden',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -22,7 +22,7 @@ function createWindow() {
     },
 
   })
-  win.setMenu(null)
+  // win.setMenu(null)
   win.webContents.openDevTools()
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)

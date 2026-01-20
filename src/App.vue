@@ -40,8 +40,9 @@ const handleSelect = (key: string, keyPath: string[]) => {
 
   .main {
     flex: 1;
-    overflow: auto;
-    padding: 20px;
+    overflow: hidden;
+    background-color: rgb(247, 247, 247);
+    padding: 10px;
   }
 }
 </style>
