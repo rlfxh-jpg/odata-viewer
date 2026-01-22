@@ -3,9 +3,11 @@ import HomeView from "../views/HomeView.vue";
 import SettingsView from "../views/SettingsView.vue";
 
 const routes = [
-  { path: "/", component: HomeView, children: [
-    
-  ] },
+  {
+    path: "/", component: HomeView, children: [
+
+    ]
+  },
   { path: "/settings", component: SettingsView },
 ];
 

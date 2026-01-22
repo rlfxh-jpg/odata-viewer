@@ -1,29 +1,27 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import axios from 'axios'
 //@ts-ignore
 import * as odatajs from '../lib/odatajs/lib/odata.js';
-import testXml from '../assets/metadata.xml?raw'
+import MetaDataXml from '../assets/metadata.xml?raw'
+import { get_data, save_data } from '../utils/tool'
+import { transformToTree } from '../utils/transformToTree.ts'
 
-const saveOrginMetadata = async (orginMetadata: any) => {
-  await window.electronAPI.saveConfig('orginMetadata11', orginMetadata)
-  //console.log('saveOrginMetadata', orginMetadata)
-}
+const ORGINMETADATA_KEY = 'orginMetadata11'
+const TRANSFORMTOTREE = 'transformToTree'
+
+
 
 export const useODataStore = defineStore('odata', () => {
-  const odataUrl = ref('https://services.odata.org/V4/TripPinServiceRW/$metadata')
-  const entitySets = ref<any[]>([])
-  const allEntities = ref<any>({})
-  const loading = ref(false)
 
+  const loading = ref(false)
+  const orginMetadata = ref<any>(null)
+  const treeData = ref<any>()
 
   const connect = async () => {
     loading.value = true
     try {
-      const res = await axios.get(odataUrl.value)
-      const metadata =odatajs.parseMetadata(testXml)
-      console.log(metadata)
-      await saveOrginMetadata(res.data)
+      orginMetadata.value = odatajs.parseMetadata(MetaDataXml)
+      treeData.value = await transformToTree(orginMetadata.value['dataServices']['schema'])
       return true
     } catch (e) {
       console.error(e)
@@ -33,5 +31,5 @@ export const useODataStore = defineStore('odata', () => {
     }
   }
 
-  return { odataUrl, entitySets, allEntities, loading, connect }
+  return { loading, connect, orginMetadata, treeData }
 })
