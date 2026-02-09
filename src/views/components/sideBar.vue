@@ -22,7 +22,6 @@
                     <el-icon v-else-if="data.type === 'enumType'">
                         <List />
                     </el-icon>
-
                     <span class="node-label">{{ node.label }}</span>
                 </span>
             </template>

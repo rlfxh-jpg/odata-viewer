@@ -25,7 +25,7 @@ const pannelData = ref([])
 const handleNodeClick = (node: any) => {
     if(node.type =='category'||node.type =='namespace')return
     pannelData.value = node.data
-    console.log(node.data)
+    console.log(node)
 }
 
 onMounted(async () => {

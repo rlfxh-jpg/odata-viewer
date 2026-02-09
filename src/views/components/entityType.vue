@@ -7,6 +7,10 @@
                 <h2 class="entity-name">{{ data.name }}</h2>
                 <span class="display-name">({{ getDisplayName(data) }})</span>
             </div>
+            <div>
+                <el-button type="primary" @click="visible = true" size="small">数据关系图</el-button>
+                <el-button type="primary" @click="visible2 = true" size="small">类型继承树</el-button>
+                <el-button type="primary" @click="visible = true" size="small">查看原始 JSON</el-button></div>
         </div>
 
         <!-- 基础属性表格 -->
@@ -68,18 +72,32 @@
                 </el-table-column>
             </el-table>
         </el-card>
+        <jsonViewerDialog v-model="visible" :data="data" />
+        <typeInheritanceTree v-model="visible2" :types="allTypes" />
     </div>
 </template>
 
 <script setup lang="ts">
 import { Key, Check, Close } from '@element-plus/icons-vue'
+import jsonViewerDialog from './jsonViewerDialog.vue';
+import typeInheritanceTree from './typeInheritanceTree.vue';
+import { ref } from 'vue'
 
 interface Props {
     data: any // 接收你提供的 JSON 对象
 }
 
+const allTypes = ref([
+  { name: 'Plt0ApplicationObject', abstract: 'true' },
+  { name: 'Plt0User', baseType: 'Plt0ApplicationObject' },
+  { name: 'Plt0Account', baseType: 'Plt0ApplicationObject' },
+  { name: 'SpecialUser', baseType: 'Plt0User' }
+])
+
 const props = defineProps<Props>()
 const emit = defineEmits(['jump'])
+const visible = ref(false)
+const visible2 = ref(false)
 
 // 提取 DisplayName 的工具函数
 const getDisplayName = (item: any): string => {
@@ -100,6 +118,7 @@ const isPrimaryKey = (fieldName: string): boolean => {
 // 处理点击导航属性跳转
 const handleJump = (fullTypeName: string) => {
     // 去掉命名空间前缀，例如 "PaaS.Plt0User" -> "Plt0User"
+    console.log(props.data)
     const entityName = fullTypeName.split('.').pop()
     emit('jump', entityName)
 }
@@ -115,6 +134,9 @@ const handleJump = (fullTypeName: string) => {
     margin-bottom: 20px;
     border-bottom: 2px solid #ebeef5;
     padding-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .title-row {
