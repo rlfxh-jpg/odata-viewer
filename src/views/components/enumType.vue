@@ -1,112 +1,115 @@
 <template>
-    <div class="enum-detail" v-if="data">
-        <!-- 头部信息 -->
-        <div class="header">
-            <div class="title-row">
-                <el-tag v-if="data.underlyingType" type="info" size="small">{{ data.underlyingType }}</el-tag>
-                <h2 class="enum-name">{{ data.name }}</h2>
-                <span class="display-name">({{ getDisplayName(data) }})</span>
-            </div>
-            <div>
-                <el-button type="primary" @click="visible = true" size="small">查看原始 JSON</el-button>
-            </div>
-        </div>
-
-        <!-- 枚举成员表格 -->
-        <el-card class="section-card" shadow="never">
-            <template #header>
-                <div class="card-header"><span>枚举成员 (Members)</span></div>
-            </template>
-            <el-table :data="data.member" stripe style="width: 100%" border>
-                <el-table-column prop="name" label="成员名称" width="200" />
-                <el-table-column label="显示名称" width="200">
-                    <template #default="scope">
-                        {{ getDisplayName(scope.row) }}
-                    </template>
-                </el-table-column>
-                <el-table-column prop="value" label="值" width="100" />
-                <el-table-column label="描述">
-                    <template #default="scope">
-                        {{ getDescription(scope.row) }}
-                    </template>
-                </el-table-column>
-            </el-table>
-        </el-card>
-
-        <jsonViewerDialog v-model="visible" :data="data" />
+  <div v-if="data" class="enum-detail">
+    <div class="header">
+      <div class="title-row">
+        <el-tag v-if="data.underlyingType" type="info" size="small">{{ data.underlyingType }}</el-tag>
+        <el-tag v-if="data.isFlags" type="warning" size="small">Flags</el-tag>
+        <h3 class="enum-name">{{ data.name }}</h3>
+        <span v-if="data.displayName" class="display-name">({{ data.displayName }})</span>
+      </div>
+      <el-button size="small" type="primary" @click="rawVisible = true">Raw JSON</el-button>
     </div>
+
+    <p v-if="data.description" class="enum-description">{{ data.description }}</p>
+
+    <el-descriptions :column="2" border size="small">
+      <el-descriptions-item label="Full Name">{{ data.fullName }}</el-descriptions-item>
+      <el-descriptions-item label="Flags">{{ data.isFlags ? 'Yes' : 'No' }}</el-descriptions-item>
+      <el-descriptions-item label="Underlying Type">{{ data.underlyingType || '-' }}</el-descriptions-item>
+      <el-descriptions-item label="Members">{{ memberRows.length }}</el-descriptions-item>
+      <el-descriptions-item label="Config" :span="2">{{ configSummary || '-' }}</el-descriptions-item>
+      <el-descriptions-item label="Annotations" :span="2">
+        {{ annotationSummary || '-' }}
+      </el-descriptions-item>
+    </el-descriptions>
+
+    <el-table :data="memberRows" stripe border>
+      <el-table-column prop="name" label="Name" min-width="180" />
+      <el-table-column prop="displayName" label="Display Name" min-width="180" />
+      <el-table-column prop="value" label="Value" width="120" />
+      <el-table-column prop="description" label="Description" min-width="220" />
+    </el-table>
+
+    <json-viewer-dialog v-model="rawVisible" :data="data" :title="`Raw JSON - EnumType ${data.name}`" />
+  </div>
 </template>
 
 <script setup lang="ts">
-import jsonViewerDialog from './jsonViewerDialog.vue';
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import type { ODataEnumType } from '../../utils/odata-types'
+import JsonViewerDialog from './jsonViewerDialog.vue'
 
-interface Props {
-    data: any // 接收 EnumType 的 JSON 对象
-}
+const props = defineProps<{
+  data: ODataEnumType | null
+}>()
 
-const props = defineProps<Props>()
-const visible = ref(false)
+const rawVisible = ref(false)
 
-// 提取 DisplayName 的工具函数
-const getDisplayName = (item: any): string => {
-    if (!item.annotation || !Array.isArray(item.annotation)) return ''
-    const found = item.annotation.find((a: any) => a.term === 'PaaS.DisplayName')
-    if (found && found.string && found.string[0]) {
-        return found.string[0].text
-    }
+const memberRows = computed(() => {
+  if (!props.data) {
+    return []
+  }
+  return props.data.members.map((member) => ({
+    name: member.name,
+    displayName: member.displayName || '-',
+    value: member.value ?? '-',
+    description: member.description || '-',
+  }))
+})
+
+const configSummary = computed(() => {
+  if (!props.data?.config) {
     return ''
-}
+  }
+  const pairs = Object.entries(props.data.config).filter(([, value]) => Boolean(value))
+  return pairs.map(([key, value]) => `${key}=${value}`).join(', ')
+})
 
-// 提取 Description 的工具函数
-const getDescription = (item: any): string => {
-    if (!item.annotation || !Array.isArray(item.annotation)) return ''
-    const found = item.annotation.find((a: any) => a.term === 'PaaS.Description')
-    if (found && found.string && found.string[0]) {
-        return found.string[0].text
-    }
+const annotationSummary = computed(() => {
+  if (!props.data?.annotations?.length) {
     return ''
-}
+  }
+  return props.data.annotations
+    .map((annotation) => {
+      const key = annotation.qualifier ? `${annotation.term}#${annotation.qualifier}` : annotation.term
+      return annotation.value ? `${key}=${annotation.value}` : key
+    })
+    .join('; ')
+})
 </script>
 
 <style scoped>
 .enum-detail {
-    padding: 10px;
-    background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .header {
-    margin-bottom: 20px;
-    border-bottom: 2px solid #ebeef5;
-    padding-bottom: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .title-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .enum-name {
-    margin: 0;
-    color: #303133;
-    font-size: 20px;
+  margin: 0;
+  font-size: 18px;
+  color: #303133;
 }
 
 .display-name {
-    color: #909399;
-    font-size: 14px;
+  color: #909399;
 }
 
-.section-card {
-    border: 1px solid #ebeef5;
-}
-
-.card-header {
-    font-weight: bold;
-    color: #409EFF;
+.enum-description {
+  margin: 0;
+  color: #606266;
 }
 </style>
