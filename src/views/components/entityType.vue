@@ -81,23 +81,24 @@
 import { Key, Check, Close } from '@element-plus/icons-vue'
 import jsonViewerDialog from './jsonViewerDialog.vue';
 import typeInheritanceTree from './typeInheritanceTree.vue';
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useODataStore } from '../../store/odata'
 
 interface Props {
     data: any // 接收你提供的 JSON 对象
 }
 
-const allTypes = ref([
-  { name: 'Plt0ApplicationObject', abstract: 'true' },
-  { name: 'Plt0User', baseType: 'Plt0ApplicationObject' },
-  { name: 'Plt0Account', baseType: 'Plt0ApplicationObject' },
-  { name: 'SpecialUser', baseType: 'Plt0User' }
-])
-
 const props = defineProps<Props>()
 const emit = defineEmits(['jump'])
 const visible = ref(false)
 const visible2 = ref(false)
+
+const store = useODataStore()
+
+// 从 store 获取所有类型数据
+const allTypes = computed(() => {
+  return store.getAllTypes()
+})
 
 // 提取 DisplayName 的工具函数
 const getDisplayName = (item: any): string => {

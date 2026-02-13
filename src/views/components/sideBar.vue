@@ -64,6 +64,63 @@ const handleNodeClick = (nodeData: any) => {
     // if (nodeData && (nodeData.type == 'namespace' || nodeData.type == 'category')) return
     emit('node-click', nodeData)
 }
+
+// 在树中查找节点
+const findNode = (nodes: any[], targetName: string): any => {
+    for (const node of nodes) {
+        if (node.type && node.data && node.data.name === targetName) {
+            return node
+        }
+        if (node.children) {
+            const found = findNode(node.children, targetName)
+            if (found) return found
+        }
+    }
+    return null
+}
+
+// 获取需要展开的节点键
+const getExpandedKeysToNode = (nodes: any[], targetNode: any, keys: any[] = []): any[] => {
+    for (const node of nodes) {
+        if (node.children && node.children.some((child: any) => child.id === targetNode.id || (child.children && hasChildNode(child, targetNode.id)))) {
+            keys.push(node.id)
+            getExpandedKeysToNode(node.children, targetNode, keys)
+            return keys
+        }
+        if (node.children) {
+            getExpandedKeysToNode(node.children, targetNode, keys)
+        }
+    }
+    return keys
+}
+
+// 检查子树中是否包含目标节点
+const hasChildNode = (node: any, targetId: any): boolean => {
+    if (node.id === targetId) return true
+    if (node.children) {
+        return node.children.some((child: any) => hasChildNode(child, targetId))
+    }
+    return false
+}
+
+// 根据类型名称选中节点
+const selectNodeByTypeName = (typeName: string) => {
+    if (!treeRef.value || !props.treeData) return
+
+    const targetNode = findNode(props.treeData, typeName)
+    if (targetNode) {
+        // 设置当前选中的节点
+        treeRef.value.setCurrentKey(targetNode.id)
+        // 展开父节点（确保节点可见）
+        const expandedKeys = getExpandedKeysToNode(props.treeData, targetNode)
+        treeRef.value.setExpandedKeys(expandedKeys)
+    }
+}
+
+// 暴露方法给父组件
+defineExpose({
+    selectNodeByTypeName
+})
 </script>
 
 <style scoped>
