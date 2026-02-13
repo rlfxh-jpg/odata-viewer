@@ -1,17 +1,18 @@
-import { createRouter, createWebHashHistory } from "vue-router";
-import HomeView from "../views/HomeView.vue";
-import SettingsView from "../views/SettingsView.vue";
+import { createRouter, createWebHashHistory } from 'vue-router'
+import ODataWorkbench from '../views/ODataWorkbench.vue'
 
 const routes = [
   {
-    path: "/", component: HomeView, children: [
-
-    ]
+    path: '/',
+    component: ODataWorkbench,
   },
-  { path: "/settings", component: SettingsView },
-];
+  {
+    path: '/settings',
+    redirect: '/',
+  },
+]
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes,
-});
+})
