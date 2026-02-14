@@ -371,10 +371,10 @@
                       <el-form-item label="$select">
                         <el-select v-model="selectedFields" multiple collapse-tags collapse-tags-tooltip>
                           <el-option
-                            v-for="field in selectedEntityTypeForTryIt.properties"
-                            :key="field.name"
-                            :label="field.name"
-                            :value="field.name"
+                            v-for="field in tryItSelectFieldOptions"
+                            :key="field.value"
+                            :label="field.label"
+                            :value="field.value"
                           />
                         </el-select>
                       </el-form-item>
@@ -429,8 +429,8 @@
               <el-tab-pane label="OData 请求构建器" name="builder">
                 <template v-if="selectedEntityTypeForBuilder">
                   <el-alert
-                    v-if="!activeServiceRoot"
-                    title="Current metadata was loaded from a local file. Connect by URL first to infer the service root."
+                    v-if="!resolvedBuilderServiceRoot"
+                    title="Current metadata was loaded from a local file. Please set Service Root manually or connect by URL."
                     type="warning"
                     :closable="false"
                     show-icon
@@ -447,6 +447,14 @@
 
                   <div class="try-grid">
                     <el-form label-position="top">
+                      <el-form-item label="Service Root">
+                        <el-input
+                          v-model="builderServiceRoot"
+                          clearable
+                          placeholder="例如：https://host/odata"
+                        />
+                      </el-form-item>
+
                       <el-form-item label="Resource Path">
                         <el-input
                           v-model="builderResourcePath"
@@ -457,10 +465,10 @@
                       <el-form-item label="$select">
                         <el-select v-model="builderSelectedFields" multiple collapse-tags collapse-tags-tooltip>
                           <el-option
-                            v-for="field in selectedEntityTypeForBuilder.properties"
-                            :key="field.name"
-                            :label="field.name"
-                            :value="field.name"
+                            v-for="field in builderSelectFieldOptions"
+                            :key="field.value"
+                            :label="field.label"
+                            :value="field.value"
                           />
                         </el-select>
                       </el-form-item>
@@ -680,6 +688,7 @@ const filterText = ref('')
 const topValue = ref(20)
 const tryItLoading = ref(false)
 const tryItResponse = ref('')
+const builderServiceRoot = ref('')
 const builderResourcePath = ref('')
 const builderSelectedFields = ref<string[]>([])
 const builderSelectedExpands = ref<string[]>([])
@@ -725,6 +734,11 @@ interface InheritanceDialogType {
   baseType?: string
   baseTypeFullName?: string
   kind: 'entityType' | 'complexType'
+}
+
+interface SelectFieldOption {
+  label: string
+  value: string
 }
 
 const treeNodeMap = computed(() => {
@@ -888,6 +902,86 @@ const findEntityTypeByTypeRef = (typeRef: TypeRef): ODataEntityType | null => {
   )
 }
 
+const uniqueStringList = (items: string[]): string[] => Array.from(new Set(items))
+
+const extractSelectNavigationNames = (fields: string[]): string[] =>
+  uniqueStringList(
+    fields
+      .map((item) => item.trim())
+      .filter((item) => item.includes('/'))
+      .map((item) => item.split('/')[0])
+      .filter(Boolean),
+  )
+
+const buildSelectFieldOptions = (entityType: ODataEntityType | null): SelectFieldOption[] => {
+  if (!entityType) {
+    return []
+  }
+
+  const options: SelectFieldOption[] = entityType.properties.map((field) => ({
+    label: field.name,
+    value: field.name,
+  }))
+
+  for (const navigation of entityType.navigationProperties) {
+    const targetEntityType = findEntityTypeByTypeRef(navigation.type)
+    if (!targetEntityType) {
+      continue
+    }
+    for (const targetProperty of targetEntityType.properties) {
+      const path = `${navigation.name}/${targetProperty.name}`
+      options.push({
+        label: path,
+        value: path,
+      })
+    }
+  }
+
+  return uniqueStringList(options.map((item) => item.value)).map((value) => ({
+    label: value,
+    value,
+  }))
+}
+
+const buildFilterTemplates = (entityType: ODataEntityType | null): Array<{ value: string }> => {
+  if (!entityType) {
+    return []
+  }
+
+  const templates: string[] = []
+
+  for (const field of entityType.properties) {
+    templates.push(`${field.name} eq `)
+    templates.push(`${field.name} ne `)
+    templates.push(`${field.name} gt `)
+    templates.push(`startswith(${field.name}, '')`)
+    templates.push(`contains(${field.name}, '')`)
+  }
+
+  for (const navigation of entityType.navigationProperties) {
+    const targetEntityType = findEntityTypeByTypeRef(navigation.type)
+    if (!targetEntityType) {
+      continue
+    }
+
+    for (const targetProperty of targetEntityType.properties) {
+      if (navigation.type.isCollection) {
+        templates.push(`${navigation.name}/any(x:x/${targetProperty.name} eq )`)
+        templates.push(`${navigation.name}/any(x:contains(x/${targetProperty.name}, ''))`)
+      } else {
+        const path = `${navigation.name}/${targetProperty.name}`
+        templates.push(`${path} eq `)
+        templates.push(`${path} ne `)
+        templates.push(`${path} gt `)
+        templates.push(`startswith(${path}, '')`)
+        templates.push(`contains(${path}, '')`)
+      }
+    }
+  }
+
+  return uniqueStringList(templates).map((value) => ({ value }))
+}
+
 const selectedEntityTypeForDetails = computed<ODataEntityType | null>(() => {
   if (selectedEntitySetNode.value) {
     return resolveEntityTypeByEntitySet(selectedEntitySetNode.value)
@@ -924,6 +1018,14 @@ const selectedEntityTypeForTryIt = computed<ODataEntityType | null>(() => {
 const selectedEntityTypeForBuilder = computed<ODataEntityType | null>(() => selectedEntityTypeForDetails.value)
 
 const selectedEntitySetForBuilder = computed<ODataEntitySet | null>(() => selectedEntitySetForDetails.value)
+
+const tryItSelectFieldOptions = computed<SelectFieldOption[]>(() =>
+  buildSelectFieldOptions(selectedEntityTypeForTryIt.value),
+)
+
+const builderSelectFieldOptions = computed<SelectFieldOption[]>(() =>
+  buildSelectFieldOptions(selectedEntityTypeForBuilder.value),
+)
 
 const propertyRows = computed<ODataProperty[]>(() => {
   if (selectedEntityTypeForDetails.value) {
@@ -1072,30 +1174,41 @@ const activeServiceRoot = computed(() => {
   return extractServiceRoot(metadataUrl.value)
 })
 
+const buildODataQuery = (items: Array<[string, string | undefined]>): string =>
+  items
+    .filter(([, value]) => Boolean(value))
+    .map(([key, value]) => `${key}=${value as string}`)
+    .join('&')
+
+const resolvedBuilderServiceRoot = computed(() => {
+  const manual = builderServiceRoot.value.trim()
+  if (manual) {
+    return manual.replace(/\/$/, '')
+  }
+  if (activeServiceRoot.value) {
+    return activeServiceRoot.value.replace(/\/$/, '')
+  }
+  return ''
+})
+
 const generatedTryItUrl = computed(() => {
   if (!selectedEntitySetNode.value || !activeServiceRoot.value) {
     return ''
   }
-  const params = new URLSearchParams()
-  if (selectedFields.value.length) {
-    params.set('$select', selectedFields.value.join(','))
-  }
-  if (selectedExpands.value.length) {
-    params.set('$expand', selectedExpands.value.join(','))
-  }
-  if (filterText.value.trim()) {
-    params.set('$filter', filterText.value.trim())
-  }
-  if (topValue.value > 0) {
-    params.set('$top', String(topValue.value))
-  }
-  const query = params.toString()
+  const selectExpandNames = extractSelectNavigationNames(selectedFields.value)
+  const mergedExpands = uniqueStringList([...selectedExpands.value, ...selectExpandNames])
+  const query = buildODataQuery([
+    ['$select', selectedFields.value.length ? selectedFields.value.join(',') : undefined],
+    ['$expand', mergedExpands.length ? mergedExpands.join(',') : undefined],
+    ['$filter', filterText.value.trim() || undefined],
+    ['$top', topValue.value > 0 ? String(topValue.value) : undefined],
+  ])
   const root = activeServiceRoot.value.replace(/\/$/, '')
   return `${root}/${selectedEntitySetNode.value.name}${query ? `?${query}` : ''}`
 })
 
 const generatedBuilderUrl = computed(() => {
-  if (!activeServiceRoot.value) {
+  if (!resolvedBuilderServiceRoot.value) {
     return ''
   }
   const resourcePath = builderResourcePath.value.trim()
@@ -1103,58 +1216,28 @@ const generatedBuilderUrl = computed(() => {
     return ''
   }
 
-  const params = new URLSearchParams()
-  if (builderSelectedFields.value.length) {
-    params.set('$select', builderSelectedFields.value.join(','))
-  }
-  if (builderSelectedExpands.value.length) {
-    params.set('$expand', builderSelectedExpands.value.join(','))
-  }
-  if (builderFilterText.value.trim()) {
-    params.set('$filter', builderFilterText.value.trim())
-  }
-  if (builderOrderByText.value.trim()) {
-    params.set('$orderby', builderOrderByText.value.trim())
-  }
-  if (builderTopValue.value > 0) {
-    params.set('$top', String(builderTopValue.value))
-  }
-  if (builderSkipValue.value > 0) {
-    params.set('$skip', String(builderSkipValue.value))
-  }
-  if (builderCountValue.value) {
-    params.set('$count', 'true')
-  }
-  const query = params.toString()
-  const root = activeServiceRoot.value.replace(/\/$/, '')
+  const selectExpandNames = extractSelectNavigationNames(builderSelectedFields.value)
+  const mergedExpands = uniqueStringList([...builderSelectedExpands.value, ...selectExpandNames])
+  const query = buildODataQuery([
+    ['$select', builderSelectedFields.value.length ? builderSelectedFields.value.join(',') : undefined],
+    ['$expand', mergedExpands.length ? mergedExpands.join(',') : undefined],
+    ['$filter', builderFilterText.value.trim() || undefined],
+    ['$orderby', builderOrderByText.value.trim() || undefined],
+    ['$top', builderTopValue.value > 0 ? String(builderTopValue.value) : undefined],
+    ['$skip', builderSkipValue.value > 0 ? String(builderSkipValue.value) : undefined],
+    ['$count', builderCountValue.value ? 'true' : undefined],
+  ])
+  const root = resolvedBuilderServiceRoot.value
   const normalizedPath = resourcePath.replace(/^\//, '')
   return `${root}/${normalizedPath}${query ? `?${query}` : ''}`
 })
 
 const filterSuggestionTemplates = computed(() => {
-  if (!selectedEntityTypeForTryIt.value) {
-    return []
-  }
-  return selectedEntityTypeForTryIt.value.properties.flatMap((field) => [
-    { value: `${field.name} eq ` },
-    { value: `${field.name} ne ` },
-    { value: `${field.name} gt ` },
-    { value: `startswith(${field.name}, '')` },
-    { value: `contains(${field.name}, '')` },
-  ])
+  return buildFilterTemplates(selectedEntityTypeForTryIt.value)
 })
 
 const builderFilterSuggestionTemplates = computed(() => {
-  if (!selectedEntityTypeForBuilder.value) {
-    return []
-  }
-  return selectedEntityTypeForBuilder.value.properties.flatMap((field) => [
-    { value: `${field.name} eq ` },
-    { value: `${field.name} ne ` },
-    { value: `${field.name} gt ` },
-    { value: `startswith(${field.name}, '')` },
-    { value: `contains(${field.name}, '')` },
-  ])
+  return buildFilterTemplates(selectedEntityTypeForBuilder.value)
 })
 
 const formatTypeRef = (typeRef: TypeRef): string => `${typeRef.shortName}${typeRef.isCollection ? '[]' : ''}`
@@ -1224,6 +1307,7 @@ const findFirstLeafNode = (nodes: SchemaTreeNode[]): SchemaTreeNode | null => {
 
 const useParsedModel = (model: ODataMetadataModel) => {
   metadataModel.value = model
+  builderServiceRoot.value = model.serviceRoot ?? ''
   const firstLeaf = findFirstLeafNode(model.tree)
   selectedNodeKey.value = firstLeaf?.key ?? ''
   pageTab.value = 'explorer'
