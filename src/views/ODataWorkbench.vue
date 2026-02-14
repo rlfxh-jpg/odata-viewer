@@ -368,26 +368,40 @@
 
                   <div class="try-grid">
                     <el-form label-position="top">
-                      <el-form-item label="$select">
-                        <el-select v-model="selectedFields" multiple collapse-tags collapse-tags-tooltip>
-                          <el-option
-                            v-for="field in tryItSelectFieldOptions"
-                            :key="field.value"
-                            :label="field.label"
-                            :value="field.value"
-                          />
-                        </el-select>
+                      <el-form-item label="$expand">
+                        <el-tree-select
+                          v-model="selectedExpands"
+                          :data="tryItExpandTreeData"
+                          :props="expandTreeProps"
+                          multiple
+                          show-checkbox
+                          check-strictly
+                          filterable
+                          clearable
+                          collapse-tags
+                          collapse-tags-tooltip
+                          default-expand-all
+                          check-on-click-node
+                          placeholder="选择导航路径（支持到底层）"
+                        />
                       </el-form-item>
 
-                      <el-form-item label="$expand">
-                        <el-select v-model="selectedExpands" multiple collapse-tags collapse-tags-tooltip>
-                          <el-option
-                            v-for="nav in selectedEntityTypeForTryIt.navigationProperties"
-                            :key="nav.name"
-                            :label="nav.name"
-                            :value="nav.name"
-                          />
-                        </el-select>
+                      <el-form-item label="$select">
+                        <el-tree-select
+                          v-model="selectedFields"
+                          :data="tryItSelectTreeData"
+                          :props="expandTreeProps"
+                          multiple
+                          show-checkbox
+                          check-strictly
+                          filterable
+                          clearable
+                          collapse-tags
+                          collapse-tags-tooltip
+                          default-expand-all
+                          check-on-click-node
+                          placeholder="根据 Expand 类型选择字段"
+                        />
                       </el-form-item>
 
                       <el-form-item label="$filter">
@@ -462,35 +476,74 @@
                         />
                       </el-form-item>
 
-                      <el-form-item label="$select">
-                        <el-select v-model="builderSelectedFields" multiple collapse-tags collapse-tags-tooltip>
-                          <el-option
-                            v-for="field in builderSelectFieldOptions"
-                            :key="field.value"
-                            :label="field.label"
-                            :value="field.value"
-                          />
-                        </el-select>
+                      <el-form-item label="$expand">
+                        <el-tree-select
+                          v-model="builderSelectedExpands"
+                          :data="builderExpandTreeData"
+                          :props="expandTreeProps"
+                          multiple
+                          show-checkbox
+                          check-strictly
+                          filterable
+                          clearable
+                          collapse-tags
+                          collapse-tags-tooltip
+                          default-expand-all
+                          check-on-click-node
+                          placeholder="选择导航路径（支持到底层）"
+                        />
                       </el-form-item>
 
-                      <el-form-item label="$expand">
-                        <el-select v-model="builderSelectedExpands" multiple collapse-tags collapse-tags-tooltip>
-                          <el-option
-                            v-for="nav in selectedEntityTypeForBuilder.navigationProperties"
-                            :key="nav.name"
-                            :label="nav.name"
-                            :value="nav.name"
-                          />
-                        </el-select>
+                      <el-form-item label="$select">
+                        <el-tree-select
+                          v-model="builderSelectedFields"
+                          :data="builderSelectTreeData"
+                          :props="expandTreeProps"
+                          multiple
+                          show-checkbox
+                          check-strictly
+                          filterable
+                          clearable
+                          collapse-tags
+                          collapse-tags-tooltip
+                          default-expand-all
+                          check-on-click-node
+                          placeholder="根据 Expand 类型选择字段"
+                        />
                       </el-form-item>
 
                       <el-form-item label="$filter">
-                        <el-autocomplete
-                          v-model="builderFilterText"
-                          :fetch-suggestions="queryBuilderFilterSuggestion"
-                          clearable
-                          placeholder="例如：startswith(Name,'A') and IsDeleted eq false"
-                        />
+                        <div class="filter-builder-row">
+                          <el-select
+                            v-model="builderFilterField"
+                            filterable
+                            clearable
+                            placeholder="选择属性"
+                          >
+                            <el-option
+                              v-for="option in builderFilterFieldOptions"
+                              :key="option.value"
+                              :label="option.label"
+                              :value="option.value"
+                            />
+                          </el-select>
+                          <el-select v-model="builderFilterOperator" placeholder="操作符">
+                            <el-option
+                              v-for="option in builderFilterOperatorOptions"
+                              :key="option.value"
+                              :label="option.label"
+                              :value="option.value"
+                            />
+                          </el-select>
+                          <el-input
+                            v-model="builderFilterValue"
+                            clearable
+                            placeholder="输入值（如 1 或 'A'）"
+                          />
+                        </div>
+                        <div v-if="builderFilterExpression" class="filter-preview">
+                          {{ builderFilterExpression }}
+                        </div>
                       </el-form-item>
 
                       <el-form-item label="$orderby">
@@ -692,7 +745,9 @@ const builderServiceRoot = ref('')
 const builderResourcePath = ref('')
 const builderSelectedFields = ref<string[]>([])
 const builderSelectedExpands = ref<string[]>([])
-const builderFilterText = ref('')
+const builderFilterField = ref('')
+const builderFilterOperator = ref('eq')
+const builderFilterValue = ref('')
 const builderOrderByText = ref('')
 const builderTopValue = ref(20)
 const builderSkipValue = ref(0)
@@ -715,6 +770,18 @@ const diagramNodeWidth = 190
 const diagramNodeHeight = 72
 const SIDEBAR_MIN_WIDTH = 240
 const SIDEBAR_MAX_WIDTH = 640
+const EXPAND_TREE_MAX_DEPTH = 8
+const builderFilterOperatorOptions = [
+  { label: 'eq (=)', value: 'eq' },
+  { label: 'ne (!=)', value: 'ne' },
+  { label: 'gt (>)', value: 'gt' },
+  { label: 'ge (>=)', value: 'ge' },
+  { label: 'lt (<)', value: 'lt' },
+  { label: 'le (<=)', value: 'le' },
+  { label: 'contains', value: 'contains' },
+  { label: 'startswith', value: 'startswith' },
+  { label: 'endswith', value: 'endswith' },
+] as const
 
 const workspaceStyle = computed(() => ({
   gridTemplateColumns: `${sidebarWidth.value}px 12px minmax(0, 1fr)`,
@@ -736,7 +803,14 @@ interface InheritanceDialogType {
   kind: 'entityType' | 'complexType'
 }
 
-interface SelectFieldOption {
+interface ExpandTreeNode {
+  label: string
+  value: string
+  children?: ExpandTreeNode[]
+  disabled?: boolean
+}
+
+interface FilterFieldOption {
   label: string
   value: string
 }
@@ -850,7 +924,19 @@ const selectedOperationImportNode = computed<ODataActionImport | ODataFunctionIm
   () => selectedActionImportNode.value ?? selectedFunctionImportNode.value,
 )
 
-const erCenterEntityType = computed<ODataEntityType | null>(() => selectedEntityTypeNode.value)
+const erCenterEntityType = computed<ODataEntityType | null>(() => {
+  if (selectedEntityTypeNode.value) {
+    return selectedEntityTypeNode.value
+  }
+  if (!selectedEntitySetNode.value || !metadataModel.value) {
+    return null
+  }
+  return (
+    metadataModel.value.entityTypeMap[selectedEntitySetNode.value.entityTypeFullName] ??
+    metadataModel.value.entityTypeMap[selectedEntitySetNode.value.entityTypeName] ??
+    null
+  )
+})
 
 const canOpenErDialog = computed(() => Boolean(metadataModel.value && erCenterEntityType.value))
 
@@ -859,10 +945,13 @@ const erButtonTooltip = computed(() => {
     return 'Please load metadata first'
   }
   if (!selectedLeafNode.value) {
-    return 'Please select an EntityType node on the left'
+    return 'Please select an EntityType or EntitySet node on the left'
+  }
+  if (selectedLeafNode.value.kind !== 'entityType' && selectedLeafNode.value.kind !== 'entitySet') {
+    return 'ER diagram is available only for EntityType / EntitySet nodes'
   }
   if (!erCenterEntityType.value) {
-    return 'ER diagram is available only for EntityType nodes'
+    return 'Cannot resolve EntityType for current EntitySet'
   }
   return 'Build relationship diagram with current EntityType as center'
 })
@@ -902,45 +991,220 @@ const findEntityTypeByTypeRef = (typeRef: TypeRef): ODataEntityType | null => {
   )
 }
 
+const findEntitySetByEntityType = (entityType: ODataEntityType): ODataEntitySet | null => {
+  if (!metadataModel.value) {
+    return null
+  }
+
+  return (
+    metadataModel.value.entitySets.find((entitySet) => entitySet.entityTypeFullName === entityType.fullName) ??
+    metadataModel.value.entitySets.find((entitySet) => entitySet.entityTypeName === entityType.name) ??
+    null
+  )
+}
+
 const uniqueStringList = (items: string[]): string[] => Array.from(new Set(items))
 
-const extractSelectNavigationNames = (fields: string[]): string[] =>
+const expandTreeProps = {
+  value: 'value',
+  label: 'label',
+  children: 'children',
+}
+
+const normalizeExpandPaths = (paths: string[]): string[] => {
+  const cleaned = uniqueStringList(paths.map((item) => item.trim()).filter(Boolean))
+  return cleaned.filter(
+    (currentPath) => !cleaned.some((otherPath) => otherPath !== currentPath && otherPath.startsWith(`${currentPath}/`)),
+  )
+}
+
+const uniqueExpandPaths = (paths: string[]): string[] =>
+  uniqueStringList(paths.map((item) => item.trim()).filter(Boolean))
+
+const buildExpandQueryValue = (paths: string[]): string => {
+  const cleanedPaths = uniqueExpandPaths(paths)
+  if (!cleanedPaths.length) {
+    return ''
+  }
+
+  interface ExpandQueryNode {
+    children: Record<string, ExpandQueryNode>
+  }
+
+  const root: Record<string, ExpandQueryNode> = {}
+
+  for (const path of cleanedPaths) {
+    const segments = path
+      .split('/')
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+    if (!segments.length) {
+      continue
+    }
+
+    let current = root
+    for (const segment of segments) {
+      current[segment] = current[segment] ?? { children: {} }
+      current = current[segment].children
+    }
+  }
+
+  const serializeNode = (name: string, node: ExpandQueryNode): string => {
+    const children = Object.keys(node.children)
+      .sort((left, right) => left.localeCompare(right))
+      .map((childName) => serializeNode(childName, node.children[childName]))
+      .join(',')
+
+    if (!children) {
+      return name
+    }
+    return `${name}($expand=${children})`
+  }
+
+  return Object.keys(root)
+    .sort((left, right) => left.localeCompare(right))
+    .map((name) => serializeNode(name, root[name]))
+    .join(',')
+}
+
+const extractSelectNavigationPaths = (fields: string[]): string[] =>
   uniqueStringList(
     fields
       .map((item) => item.trim())
       .filter((item) => item.includes('/'))
-      .map((item) => item.split('/')[0])
+      .map((item) => {
+        const parts = item.split('/').filter(Boolean)
+        return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
+      })
       .filter(Boolean),
   )
 
-const buildSelectFieldOptions = (entityType: ODataEntityType | null): SelectFieldOption[] => {
+const buildExpandTree = (entityType: ODataEntityType | null): ExpandTreeNode[] => {
   if (!entityType) {
     return []
   }
 
-  const options: SelectFieldOption[] = entityType.properties.map((field) => ({
-    label: field.name,
-    value: field.name,
-  }))
-
-  for (const navigation of entityType.navigationProperties) {
-    const targetEntityType = findEntityTypeByTypeRef(navigation.type)
-    if (!targetEntityType) {
-      continue
+  const buildChildren = (
+    currentType: ODataEntityType,
+    parentPath: string[],
+    visitedTypes: Set<string>,
+    depth: number,
+  ): ExpandTreeNode[] => {
+    if (depth >= EXPAND_TREE_MAX_DEPTH) {
+      return []
     }
-    for (const targetProperty of targetEntityType.properties) {
-      const path = `${navigation.name}/${targetProperty.name}`
-      options.push({
-        label: path,
-        value: path,
+
+    const nodes: ExpandTreeNode[] = []
+    for (const navigation of currentType.navigationProperties) {
+      const currentPath = [...parentPath, navigation.name]
+      const value = currentPath.join('/')
+      const targetType = findEntityTypeByTypeRef(navigation.type)
+
+      let children: ExpandTreeNode[] = []
+      if (targetType && !visitedTypes.has(targetType.fullName)) {
+        const nextVisited = new Set(visitedTypes)
+        nextVisited.add(targetType.fullName)
+        children = buildChildren(targetType, currentPath, nextVisited, depth + 1)
+      }
+
+      nodes.push({
+        label: targetType ? `${navigation.name} -> ${targetType.name}` : navigation.name,
+        value,
+        children: children.length ? children : undefined,
       })
+    }
+
+    return nodes.sort((left, right) => left.label.localeCompare(right.label))
+  }
+
+  return buildChildren(entityType, [], new Set([entityType.fullName]), 0)
+}
+
+const resolveEntityTypeByExpandPath = (
+  rootEntityType: ODataEntityType | null,
+  expandPath: string,
+): ODataEntityType | null => {
+  if (!rootEntityType) {
+    return null
+  }
+
+  const segments = expandPath
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+  if (!segments.length) {
+    return null
+  }
+
+  let currentType: ODataEntityType | null = rootEntityType
+  for (const segment of segments) {
+    const navigation = currentType.navigationProperties.find((item) => item.name === segment)
+    if (!navigation) {
+      return null
+    }
+    currentType = findEntityTypeByTypeRef(navigation.type)
+    if (!currentType) {
+      return null
     }
   }
 
-  return uniqueStringList(options.map((item) => item.value)).map((value) => ({
-    label: value,
-    value,
-  }))
+  return currentType
+}
+
+const buildSelectTree = (entityType: ODataEntityType | null, expandPaths: string[]): ExpandTreeNode[] => {
+  if (!entityType) {
+    return []
+  }
+
+  const nodes: ExpandTreeNode[] = [
+    {
+      label: `Root (${entityType.name})`,
+      value: '__root__',
+      disabled: true,
+      children: entityType.properties.map((property) => ({
+        label: property.name,
+        value: property.name,
+      })),
+    },
+  ]
+
+  const uniquePaths = uniqueExpandPaths(expandPaths).sort((left, right) => left.localeCompare(right))
+  for (const path of uniquePaths) {
+    const targetEntityType = resolveEntityTypeByExpandPath(entityType, path)
+    if (!targetEntityType) {
+      continue
+    }
+    nodes.push({
+      label: `${path} (${targetEntityType.name})`,
+      value: `__expand__:${path}`,
+      disabled: true,
+      children: targetEntityType.properties.map((property) => ({
+        label: property.name,
+        value: `${path}/${property.name}`,
+      })),
+    })
+  }
+
+  return nodes
+}
+
+const collectLeafSelectValues = (nodes: ExpandTreeNode[]): string[] => {
+  const values: string[] = []
+
+  const travel = (items: ExpandTreeNode[]) => {
+    for (const item of items) {
+      if (item.children?.length) {
+        travel(item.children)
+        continue
+      }
+      if (!item.disabled) {
+        values.push(item.value)
+      }
+    }
+  }
+
+  travel(nodes)
+  return uniqueStringList(values)
 }
 
 const buildFilterTemplates = (entityType: ODataEntityType | null): Array<{ value: string }> => {
@@ -1019,13 +1283,65 @@ const selectedEntityTypeForBuilder = computed<ODataEntityType | null>(() => sele
 
 const selectedEntitySetForBuilder = computed<ODataEntitySet | null>(() => selectedEntitySetForDetails.value)
 
-const tryItSelectFieldOptions = computed<SelectFieldOption[]>(() =>
-  buildSelectFieldOptions(selectedEntityTypeForTryIt.value),
+const tryItExpandTreeData = computed<ExpandTreeNode[]>(() =>
+  buildExpandTree(selectedEntityTypeForTryIt.value),
 )
 
-const builderSelectFieldOptions = computed<SelectFieldOption[]>(() =>
-  buildSelectFieldOptions(selectedEntityTypeForBuilder.value),
+const builderExpandTreeData = computed<ExpandTreeNode[]>(() =>
+  buildExpandTree(selectedEntityTypeForBuilder.value),
 )
+
+const tryItSelectTreeData = computed<ExpandTreeNode[]>(() =>
+  buildSelectTree(selectedEntityTypeForTryIt.value, selectedExpands.value),
+)
+
+const builderSelectTreeData = computed<ExpandTreeNode[]>(() =>
+  buildSelectTree(selectedEntityTypeForBuilder.value, builderSelectedExpands.value),
+)
+
+const tryItSelectableLeafValues = computed<string[]>(() => collectLeafSelectValues(tryItSelectTreeData.value))
+
+const builderSelectableLeafValues = computed<string[]>(() => collectLeafSelectValues(builderSelectTreeData.value))
+
+const builderFilterFieldOptions = computed<FilterFieldOption[]>(() =>
+  builderSelectableLeafValues.value.map((value) => ({ label: value, value })),
+)
+
+const buildFilterLiteral = (input: string): string => {
+  const value = input.trim()
+  if (!value) {
+    return ''
+  }
+  if (/^'.*'$/.test(value)) {
+    return value
+  }
+  if (/^(true|false|null)$/i.test(value)) {
+    return value.toLowerCase()
+  }
+  if (/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
+    return value
+  }
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+const builderFilterExpression = computed(() => {
+  const field = builderFilterField.value.trim()
+  const rawValue = builderFilterValue.value.trim()
+  if (!field || !rawValue) {
+    return ''
+  }
+
+  const operator = builderFilterOperator.value
+  const literal = buildFilterLiteral(rawValue)
+  if (!literal) {
+    return ''
+  }
+
+  if (operator === 'contains' || operator === 'startswith' || operator === 'endswith') {
+    return `${operator}(${field},${literal})`
+  }
+  return `${field} ${operator} ${literal}`
+})
 
 const propertyRows = computed<ODataProperty[]>(() => {
   if (selectedEntityTypeForDetails.value) {
@@ -1195,11 +1511,12 @@ const generatedTryItUrl = computed(() => {
   if (!selectedEntitySetNode.value || !activeServiceRoot.value) {
     return ''
   }
-  const selectExpandNames = extractSelectNavigationNames(selectedFields.value)
-  const mergedExpands = uniqueStringList([...selectedExpands.value, ...selectExpandNames])
+  const selectExpandPaths = extractSelectNavigationPaths(selectedFields.value)
+  const mergedExpands = normalizeExpandPaths([...selectedExpands.value, ...selectExpandPaths])
+  const expandQuery = buildExpandQueryValue(mergedExpands)
   const query = buildODataQuery([
     ['$select', selectedFields.value.length ? selectedFields.value.join(',') : undefined],
-    ['$expand', mergedExpands.length ? mergedExpands.join(',') : undefined],
+    ['$expand', expandQuery || undefined],
     ['$filter', filterText.value.trim() || undefined],
     ['$top', topValue.value > 0 ? String(topValue.value) : undefined],
   ])
@@ -1216,12 +1533,13 @@ const generatedBuilderUrl = computed(() => {
     return ''
   }
 
-  const selectExpandNames = extractSelectNavigationNames(builderSelectedFields.value)
-  const mergedExpands = uniqueStringList([...builderSelectedExpands.value, ...selectExpandNames])
+  const selectExpandPaths = extractSelectNavigationPaths(builderSelectedFields.value)
+  const mergedExpands = normalizeExpandPaths([...builderSelectedExpands.value, ...selectExpandPaths])
+  const expandQuery = buildExpandQueryValue(mergedExpands)
   const query = buildODataQuery([
     ['$select', builderSelectedFields.value.length ? builderSelectedFields.value.join(',') : undefined],
-    ['$expand', mergedExpands.length ? mergedExpands.join(',') : undefined],
-    ['$filter', builderFilterText.value.trim() || undefined],
+    ['$expand', expandQuery || undefined],
+    ['$filter', builderFilterExpression.value || undefined],
     ['$orderby', builderOrderByText.value.trim() || undefined],
     ['$top', builderTopValue.value > 0 ? String(builderTopValue.value) : undefined],
     ['$skip', builderSkipValue.value > 0 ? String(builderSkipValue.value) : undefined],
@@ -1234,10 +1552,6 @@ const generatedBuilderUrl = computed(() => {
 
 const filterSuggestionTemplates = computed(() => {
   return buildFilterTemplates(selectedEntityTypeForTryIt.value)
-})
-
-const builderFilterSuggestionTemplates = computed(() => {
-  return buildFilterTemplates(selectedEntityTypeForBuilder.value)
 })
 
 const formatTypeRef = (typeRef: TypeRef): string => `${typeRef.shortName}${typeRef.isCollection ? '[]' : ''}`
@@ -1571,6 +1885,11 @@ const handleDiagramNodeClick = (node: DiagramNode) => {
     suppressedClickNodeKey.value = ''
     return
   }
+  const targetEntitySet = findEntitySetByEntityType(node.entityType)
+  if (targetEntitySet) {
+    focusEntitySet(targetEntitySet)
+    return
+  }
   focusEntityType(node.entityType)
 }
 
@@ -1890,21 +2209,6 @@ const queryFilterSuggestion = (
   callback(matched.slice(0, 12))
 }
 
-const queryBuilderFilterSuggestion = (
-  query: string,
-  callback: (items: Array<{ value: string }>) => void,
-) => {
-  const keyword = query.trim().toLowerCase()
-  if (!keyword) {
-    callback(builderFilterSuggestionTemplates.value.slice(0, 12))
-    return
-  }
-  const matched = builderFilterSuggestionTemplates.value.filter((item) =>
-    item.value.toLowerCase().includes(keyword),
-  )
-  callback(matched.slice(0, 12))
-}
-
 watch(
   selectedEntityTypeForTryIt,
   (entityType) => {
@@ -1925,13 +2229,27 @@ watch(
 )
 
 watch(
+  tryItSelectableLeafValues,
+  (allowedValues) => {
+    if (!selectedFields.value.length) {
+      return
+    }
+    const allowedSet = new Set(allowedValues)
+    selectedFields.value = selectedFields.value.filter((item) => allowedSet.has(item))
+  },
+  { immediate: true },
+)
+
+watch(
   [selectedNodeKey, selectedEntityTypeForBuilder, selectedEntitySetForBuilder],
   ([, entityType, entitySet]) => {
     if (!entityType) {
       builderResourcePath.value = ''
       builderSelectedFields.value = []
       builderSelectedExpands.value = []
-      builderFilterText.value = ''
+      builderFilterField.value = ''
+      builderFilterOperator.value = 'eq'
+      builderFilterValue.value = ''
       builderOrderByText.value = ''
       builderTopValue.value = 20
       builderSkipValue.value = 0
@@ -1943,12 +2261,41 @@ watch(
     builderResourcePath.value = entitySet?.name ?? entityType.name
     builderSelectedFields.value = entityType.properties.slice(0, 8).map((item) => item.name)
     builderSelectedExpands.value = []
-    builderFilterText.value = ''
+    builderFilterField.value = entityType.properties[0]?.name ?? ''
+    builderFilterOperator.value = 'eq'
+    builderFilterValue.value = ''
     builderOrderByText.value = ''
     builderTopValue.value = 20
     builderSkipValue.value = 0
     builderCountValue.value = false
     builderResponseText.value = ''
+  },
+  { immediate: true },
+)
+
+watch(
+  builderSelectableLeafValues,
+  (allowedValues) => {
+    if (!builderSelectedFields.value.length) {
+      return
+    }
+    const allowedSet = new Set(allowedValues)
+    builderSelectedFields.value = builderSelectedFields.value.filter((item) => allowedSet.has(item))
+  },
+  { immediate: true },
+)
+
+watch(
+  builderFilterFieldOptions,
+  (options) => {
+    const values = new Set(options.map((item) => item.value))
+    if (!values.size) {
+      builderFilterField.value = ''
+      return
+    }
+    if (!builderFilterField.value || !values.has(builderFilterField.value)) {
+      builderFilterField.value = options[0].value
+    }
   },
   { immediate: true },
 )
@@ -1972,7 +2319,7 @@ watch(
 )
 
 watch(
-  selectedEntityTypeNode,
+  erCenterEntityType,
   (entityType, previousEntityType) => {
     if (!entityType) {
       resetDiagramNodeOverrides()
@@ -2432,6 +2779,19 @@ const diagramLines = computed<DiagramLine[]>(() => {
   gap: 10px;
 }
 
+.filter-builder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.filter-preview {
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+  word-break: break-all;
+}
+
 .builder-actions {
   display: flex;
   gap: 8px;
@@ -2544,6 +2904,10 @@ const diagramLines = computed<DiagramLine[]>(() => {
   }
 
   .try-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-builder-row {
     grid-template-columns: 1fr;
   }
 
